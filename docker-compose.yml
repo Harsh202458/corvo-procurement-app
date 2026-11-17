@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: corvo
+      POSTGRES_PASSWORD: corvo
+      POSTGRES_DB: corvo
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U corvo"]
+      interval: 3s
+      retries: 20
+
+  app:
+    build: .
+    ports: ["8000:8000"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://corvo:corvo@db:5432/corvo
+      KIT_DIR: /kit
+    volumes:
+      - ./kit:/kit:ro   # local task data (never committed)
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:

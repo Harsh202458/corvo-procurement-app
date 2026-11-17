@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+kit/
+data/
+*.pdf
+__pycache__/
+node_modules/
+.venv/
+venv/
+*.db
+*.sqlite3
+frontend/dist/
+backend/static/
+.pytest_cache/
+*.pyc
+.DS_Store
