@@ -2,6 +2,16 @@
 
 Where the policy (v5.0), the brief or the data is silent or ambiguous: what I noticed, what I decided, and why.
 
+**The ones that most affect the decisions:**
+- **D12** duplicate submission (same requester, item, quantity, need-by within 24 h) → the later line is `NOT_PROCESSED`; look-alikes from different people are clubbed.
+- **D10** unusable lines (quantity 0, unknown plant PUN2, no item, no need-by) → `NOT_PROCESSED` with the reason; these checks are policy data.
+- **D8 / D27** each requirement is decided under the policy version in force on its requirement date.
+- **D16** free-text matching never guesses: every number in the request must be in the item, otherwise it is a new item.
+- **D17 / D35** only the urgency field makes an emergency, not the word "urgent".
+- **D18** valuation uses the latest PO from any supplier; PO eligibility needs an Active supplier.
+- **D20 / D22** contract ceilings are consumed only by contract POs, in requirement-date order; a PDF-only contract applies only from its start date, even if a later line clubs into an earlier requirement.
+- **Supplier ranking** is explained in its own section at the end.
+
 ## Data intake
 
 | # | Noticed | Decided | Why |
@@ -53,7 +63,8 @@ Where the policy (v5.0), the brief or the data is silent or ambiguous: what I no
 | D29 | An amendment may not state its effective date or version number. | Missing version: the next minor version (5.0 → 5.1). Missing effective date: **today**, with a warning, and the impact preview says so if no requirement in the batch would fall on the new version. Both are editable before approval. | A date must never be invented silently: it decides which requirements the amendment touches (D8). |
 | D30 | Which version an amendment amends. | The latest approved version, unless the user picks another. | Amendments are written against the policy in force. |
 | D31 | The AI service can be slow or overloaded (during the build, Gemini Flash returned 503/504 for minutes at a time). | Each call is capped at 60 s and falls back through several Gemini models (Flash, then Flash-Lite). If all fail, a **rule-based reader** handles the common changes (limits in INR or lakh/crore, clubbing and consolidation windows, effective date, version, excluded suppliers) and lists every sentence it could not handle. The JSON editor is always available. | The blind test has a 2-hour window; reading an amendment must never depend on one external service being up. |
-| D32 | A plant- or category-specific limit cannot be a single number. | It is expressed as a new named limit (e.g. `limits.chk1_spot_po_below`) and a rule with a `plant`/`category` condition, placed **before** the general rule it overrides (first match wins). | Keeps the general rule intact for everyone else, and the diff reads naturally ("New rule (before R-5.4): …"). || D33 | Rehearsal with real Gemini on four amendments written in the policy's style (`backend/tests/fixtures/amendments/`): limits, a CHK1-only Service rule, a blocked supplier, a Safety & PPE threshold, a longer clubbing window, no contracts for emergencies, a 48 h consolidation window, an IT-department rule, a new MINI_PO route and a quality floor. | All four produce valid versions with correct diffs. The first rehearsal placed new restrictive rules **above** the contract rule (turning contract POs into RFQs); the prompt now says to place them after R-5.2, just before the rule they restrict, unless the amendment says otherwise, and the rerun placed all of them correctly. "Order from the best-rated category supplier" could not be expressed, so a `category_best` supplier option was added. | The impact preview is what caught the placement problem: the reviewer sees "CONTRACT_PO → RFQ" lines before approving. |
+| D32 | A plant- or category-specific limit cannot be a single number. | It is expressed as a new named limit (e.g. `limits.chk1_spot_po_below`) and a rule with a `plant`/`category` condition, placed **before** the general rule it overrides (first match wins). | Keeps the general rule intact for everyone else, and the diff reads naturally ("New rule (before R-5.4): …"). |
+| D33 | Rehearsal with real Gemini on four amendments written in the policy's style (`backend/tests/fixtures/amendments/`): limits, a CHK1-only Service rule, a blocked supplier, a Safety & PPE threshold, a longer clubbing window, no contracts for emergencies, a 48 h consolidation window, an IT-department rule, a new MINI_PO route and a quality floor. | All four produce valid versions with correct diffs. The first rehearsal placed new restrictive rules **above** the contract rule (turning contract POs into RFQs); the prompt now says to place them after R-5.2, just before the rule they restrict, unless the amendment says otherwise, and the rerun placed all of them correctly. "Order from the best-rated category supplier" could not be expressed, so a `category_best` supplier option was added. | The impact preview is what caught the placement problem: the reviewer sees "CONTRACT_PO → RFQ" lines before approving. |
 
 ## Chat intake and buyer workspace
 

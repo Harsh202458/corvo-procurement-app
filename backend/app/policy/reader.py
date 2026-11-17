@@ -219,7 +219,8 @@ def read_with_rules(text: str, base: dict, *, today: date) -> Proposal:
     assumptions: list[str] = []
     flat = re.sub(r"\s+", " ", text)
     meta: dict = {"op": "set_meta"}
-    if m := re.search(r"version\s*(?:no\.?|number)?\s*[:\-]?\s*v?(\d+\.\d+)", flat, re.I):
+    if m := (re.search(r"(?:new\s+)?version\s*(?:no\.?|number)?\s*[:\-]?\s*v?(\d+\.\d+)", flat, re.I)
+             or re.search(r"\bv(\d+\.\d+)\b", flat, re.I)):
         meta["version"] = m.group(1)
     if m := re.search(r"effective(?:\s+(?:from|on|date|as of))?\s*[:\-]?\s*"
                       r"(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{1,2}\s+[A-Za-z]+\s+\d{4})", flat, re.I):
