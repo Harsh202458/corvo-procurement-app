@@ -78,6 +78,14 @@ class GeminiClient:
         raise LLMUnavailable("; ".join(errors))
 
 
+def get_fast_llm() -> LLMClient:
+    """For chat turns: quick models first and a short timeout; the regex extractor covers failures."""
+    if settings.llm_provider == "gemini" and settings.gemini_api_key:
+        return GeminiClient(settings.gemini_api_key, "gemini-3.1-flash-lite",
+                            ["gemini-3.5-flash-lite", settings.gemini_model], timeout_s=12)
+    return NullClient()
+
+
 def get_llm() -> LLMClient:
     if settings.llm_provider == "gemini" and settings.gemini_api_key:
         fallbacks = [m.strip() for m in settings.gemini_fallback_models.split(",")]

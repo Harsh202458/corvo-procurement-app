@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  (registers tables)
 from . import repo
-from .api import decisions, master, policy, suppliers
+from .api import chat, decisions, master, policy, suppliers
 from .policy.store import seed_default_policy
 from .config import settings
 from .db import SessionLocal, sync_schema
@@ -22,6 +22,7 @@ app.include_router(master.router)
 app.include_router(policy.router)
 app.include_router(decisions.router)
 app.include_router(suppliers.router)
+app.include_router(chat.router)
 
 
 @app.get("/api/health")

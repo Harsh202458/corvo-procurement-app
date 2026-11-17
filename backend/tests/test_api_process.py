@@ -82,3 +82,37 @@ def test_read_document_upload():
     f = Path(__file__).parent / "fixtures" / "amendments" / "a2_emergency_category_window.txt"
     r = c.post("/api/policy/read-document", files={"file": (f.name, f.read_bytes())}, data={"use_ai": "false"}).json()
     assert r["valid"] and r["source_name"] == f.name and r["document"]["version"] == "5.2"
+
+
+def test_chat_raises_a_pr_with_follow_ups():
+    s = c.post("/api/chat", json={"message": "need gloves for Chakan"}).json()
+    assert "Which item" in s["text"] and len(s["options"]) == 3
+    sid = s["session_id"]
+    for msg in ["2", "300", "in 2 weeks", "normal"]:
+        s = c.post("/api/chat", json={"message": msg, "session_id": sid}).json()
+    assert s["stage"] == "confirming" and "Shall I raise it?" in s["text"]
+    s = c.post("/api/chat", json={"message": "yes", "session_id": sid}).json()
+    assert s["stage"] == "done" and s["pr"]["pr_no"].startswith("PR-CHAT-")
+    assert s["decision"]["resolved_item_code"] == "ITM-1048" and s["decision"]["route"] in ("SPOT_PO", "CONTRACT_PO", "RFQ")
+    new = c.post("/api/chat", json={"message": "raise another", "session_id": sid}).json()
+    assert new["session_id"] != sid
+
+
+def test_buyer_approve_and_override():
+    run_id = c.get("/api/runs").json()[-1]["id"]
+    reqs = c.get(f"/api/runs/{run_id}/requirements").json()
+    po = next(r for r in reqs if r["decision"] == "PO")
+    a = c.post(f"/api/requirements/{po['id']}/approve").json()
+    assert a["status"] == "approved" and a["document"]["type"] == "PO"
+    assert c.post(f"/api/requirements/{po['id']}/approve").status_code == 409
+
+    src = next(r for r in reqs if r["route"] == "RFQ")
+    assert c.post(f"/api/requirements/{src['id']}/override", json={"route": "SPOT_PO", "supplier_id": "S004",
+                  "unit_price": 10, "comment": "Supplier offered a better price"}).status_code == 422  # S004 Blocked
+    assert c.post(f"/api/requirements/{src['id']}/override", json={"route": "RFP", "comment": "short"}).status_code == 422
+    o = c.post(f"/api/requirements/{src['id']}/override",
+               json={"route": "RFP", "comment": "Strategic item, Procurement wants a formal RFP"}).json()
+    assert o["status"] == "overridden" and o["document"]["type"] == "RFP"
+    full = c.get(f"/api/requirements/{src['id']}").json()
+    assert full["override"]["comment"].startswith("Strategic") and full["route"] == "RFQ"  # original kept (8.1)
+    assert [x["action"] for x in full["audit"]] == ["requirement.override"] and full["audit"][0]["actor"] == "buyer.one"

@@ -244,6 +244,19 @@ class ProcurementDocRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class ChatSessionRow(Base):
+    __tablename__ = "chat_sessions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user: Mapped[str] = mapped_column(String(100))
+    department: Mapped[str] = mapped_column(String(100), default="")
+    state: Mapped[dict] = mapped_column(JSON, default=dict)
+    messages: Mapped[list] = mapped_column(JSON, default=list)
+    batch_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    run_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class AuditLogRow(Base):
     __tablename__ = "audit_log"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
