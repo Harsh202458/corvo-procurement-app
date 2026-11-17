@@ -365,6 +365,14 @@ class Engine:
                     continue
                 r.supplier_id, r.unit_price = choice.supplier_id, choice.reference_price
                 ev["supplier"] = f"1st preferred {choice.why()}; reference price from {choice.reference_source}"
+            elif then.decision == "PO" and then.supplier == "category_best":
+                best_cat = cat_sups[0] if cat_sups else None
+                if best_cat is None:
+                    skipped.append(f"§{rule.clause} fits but no eligible supplier lists category {f['category']}")
+                    continue
+                r.supplier_id, r.unit_price = best_cat.supplier_id, unit_price
+                ev["supplier"] = (f"best-rated category supplier {best_cat.supplier_id} (on-time {best_cat.on_time_pct:g}%, "
+                                  f"quality {best_cat.quality_rating:g}) at the valuation price ({price_source.replace('_', ' ')})")
             elif then.decision == "PO" and then.supplier == "contract":
                 if best is None:
                     skipped.append(f"§{rule.clause} fits but no contract has ceiling left")

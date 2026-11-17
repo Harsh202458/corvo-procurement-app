@@ -95,9 +95,11 @@ Operations (apply in order):
 
 RULE = {"id":"R-A1","clause":"5.4A","title":"short title","description":"one sentence",
         "when":COND,"then":{"decision":"PO"|"SOURCING_REQUEST"|"NOT_PROCESSED","route":"SPOT_PO",
-        "supplier":"contract"|"preferred"|"none","suggest":0,"flags":[]}}
-  - decision PO needs supplier "contract" (and the rule must test contract_available) or "preferred"
-    (1st preferred supplier at its reference price). SOURCING_REQUEST uses supplier "none" and suggest N.
+        "supplier":"contract"|"preferred"|"category_best"|"none","suggest":0,"flags":[]}}
+  - decision PO needs supplier "contract" (the rule must test contract_available: contract supplier at contract
+    rate), "preferred" (1st preferred supplier at its reference price; needs purchase history) or
+    "category_best" (best-rated eligible supplier listing the item's category, at the valuation price, e.g. the
+    item master standard price for never-bought items). SOURCING_REQUEST uses supplier "none" and suggest N.
 VALIDATION = {"id":"V6","clause":"A2","title":"...","when":COND(line-level facts),"reason":"why the line is not processed"}
 COND = {"fact":"value","op":"lt","value":200000} | {"all":[COND,...]} | {"any":[COND,...]} | {"not":COND}
   ops: eq ne lt lte gt gte in not_in between contains not_contains exists not_exists starts_with
@@ -113,6 +115,10 @@ How to translate:
    rule must be placed BEFORE the general rule it overrides (use "before"). Think about what currently
    happens to the affected requirements and make sure your change produces the amended outcome, and that
    other requirements are unaffected.
+4b. Placement default: the top rules are R-1.2 (new items), R-5.1 (capex) and R-5.2 (rate contracts).
+   Put a new rule AFTER R-5.2, directly before the rule it restricts or replaces (usually R-5.3 emergency
+   or R-5.4 spot), unless the amendment explicitly says it applies even to new items, capex items or
+   items with a usable rate contract. Say where you placed it and why in "assumptions".
 5. Plant-, category-, department- or item-type-specific changes: add conditions on plant (PUN1/CHK1),
    category (exact names below), item_type (Material/Service/Capex), departments (list, use contains).
    A limit that changes for one plant only: keep the general rule and add/adjust a rule for that plant.

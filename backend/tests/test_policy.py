@@ -134,3 +134,18 @@ def test_select_version_by_date():
 
 def test_rule_text():
     assert rule_text(V5["rules"][2], P) == "§5.2 Rate contract can be used: if contract available → PO (CONTRACT_PO) to the contract supplier at the contract rate"
+
+
+def test_diff_ignores_default_fields():
+    assert diff_policies(V5, validate_policy(V5).model_dump(mode="json")) == []
+
+
+def test_category_best_supplier_rule_validates():
+    new = apply_operations(V5, [{"op": "add_rule", "before": "R-5.3", "rule": {
+        "id": "R-A9", "clause": "A9", "title": "Mini PO",
+        "when": {"all": [{"fact": "item_type", "op": "eq", "value": "Material"},
+                         {"fact": "value", "op": "lt", "value": 25000},
+                         {"fact": "bought_recently", "op": "eq", "value": False}]},
+        "then": {"decision": "PO", "route": "MINI_PO", "supplier": "category_best"}}}])
+    validate_policy(new)
+    assert "best-rated eligible supplier" in [c for c in diff_policies(V5, new)][0]["text"]

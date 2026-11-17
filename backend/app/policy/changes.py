@@ -129,8 +129,9 @@ def apply_operations(doc: dict, ops: list[dict]) -> dict:
 def outcome_text(then: dict) -> str:
     route = then.get("route", "?")
     if then.get("decision") == "PO":
-        who = "the contract supplier at the contract rate" if then.get("supplier") == "contract" \
-            else "the 1st preferred supplier at its reference price"
+        who = {"contract": "the contract supplier at the contract rate",
+               "category_best": "the best-rated eligible supplier of the item's category at the valuation price",
+               }.get(then.get("supplier"), "the 1st preferred supplier at its reference price")
         s = f"PO ({route}) to {who}"
     elif then.get("decision") == "NOT_PROCESSED":
         s = f"not processed ({route})"
@@ -175,9 +176,20 @@ def _flatten(d: dict, prefix: str = "") -> list[tuple[str, Any]]:
     return out
 
 
+def _normalised(doc: dict) -> dict:
+    """Fill defaults so a hand-written document and its validated form compare equal."""
+    from .schema import PolicyInvalid, validate_policy
+
+    try:
+        return validate_policy(doc).model_dump(mode="json")
+    except PolicyInvalid:
+        return doc
+
+
 def diff_policies(old: dict, new: dict) -> list[dict]:
     """Plain-language list of what changes from old to new. Each entry:
     {"kind": "param|rule_added|rule_removed|rule_changed|rule_order|validation_*|meta", "text": ...}"""
+    old, new = _normalised(old), _normalised(new)
     changes: list[dict] = []
     for k in ("version", "effective_from"):
         if str(old.get(k)) != str(new.get(k)):

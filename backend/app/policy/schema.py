@@ -15,7 +15,7 @@ from .conditions import OPS, ConditionError, get_param, walk
 from .facts import is_known_fact
 
 DECISIONS = ("PO", "SOURCING_REQUEST", "NOT_PROCESSED")
-SUPPLIER_STRATEGIES = ("contract", "preferred", "none")
+SUPPLIER_STRATEGIES = ("contract", "preferred", "category_best", "none")
 PRICE_SOURCES = ("contract_rate", "last_po_price", "standard_price", "estimated_unit_price")
 CLUB_KEYS = ("item_code", "plant", "uom", "department", "requester", "urgency")
 CONSOLIDATION_KEYS = ("supplier_id", "plant", "route", "decision", "category")
@@ -97,7 +97,7 @@ class Outcome(BaseModel):
     model_config = ConfigDict(extra="forbid")
     decision: Literal["PO", "SOURCING_REQUEST", "NOT_PROCESSED"]
     route: str
-    supplier: Literal["contract", "preferred", "none"] = "none"
+    supplier: Literal["contract", "preferred", "category_best", "none"] = "none"
     suggest: int = 0
     flags: list[str] = Field(default_factory=list)  # e.g. capex_approval
     note: str | None = None
@@ -213,7 +213,7 @@ def validate_policy(doc: dict | PolicyDocument) -> PolicyDocument:
     for r in p.rules:
         _check_condition(r.when, "requirement", params, f"rule {r.id}", errors)
         if r.then.decision == "PO" and r.then.supplier == "none":
-            errors.append(f"rule {r.id}: a PO outcome needs supplier 'contract' or 'preferred'")
+            errors.append(f"rule {r.id}: a PO outcome needs supplier 'contract', 'preferred' or 'category_best'")
         if r.then.decision == "SOURCING_REQUEST" and r.then.supplier != "none":
             errors.append(f"rule {r.id}: a sourcing request does not pick a single supplier (use suggest)")
         if r.then.supplier == "contract":
