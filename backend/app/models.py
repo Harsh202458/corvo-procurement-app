@@ -189,6 +189,10 @@ class RequirementRow(Base):
     reason: Mapped[str] = mapped_column(Text)
     evidence: Mapped[dict] = mapped_column(JSON, default=dict)  # contract/PO used, price source, facts
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | approved | overridden
+    facts: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    preferred: Mapped[list | None] = mapped_column(JSON, nullable=True)  # ranked list with score breakdown
+    suggestion_notes: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    policy_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     run: Mapped[RunRow] = relationship(back_populates="requirements")
     lines: Mapped[list[LineDecisionRow]] = relationship(back_populates="requirement")
 
@@ -206,6 +210,8 @@ class LineDecisionRow(Base):
     match_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     route: Mapped[str] = mapped_column(String(40))
     reason: Mapped[str] = mapped_column(Text, default="")
+    policy_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    output: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # the exported row, exactly
     requirement: Mapped[RequirementRow | None] = relationship(back_populates="lines")
 
 

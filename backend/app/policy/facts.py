@@ -72,7 +72,8 @@ LINE_FACTS: dict[str, tuple[str, str]] = {
     "urgency": ("string", "Normal or Emergency"),
     "department": ("string", "Requester's department"),
     "requester": ("string", "Requester"),
-    "is_duplicate": ("bool", "Same requester, plant, item, quantity and need-by as an earlier line within the duplicate window"),
+    "is_duplicate": ("bool", "Same requester, plant, item, quantity and need-by as an earlier (processed) line within params.duplicate_window_hours"),
+    "duplicate_of": ("string", "The earlier line this one duplicates, e.g. PR-26-00174/1"),
 }
 
 FACT_TYPES = {**{k: v[0] for k, v in LINE_FACTS.items()}, **{k: v[0] for k, v in REQUIREMENT_FACTS.items()}}

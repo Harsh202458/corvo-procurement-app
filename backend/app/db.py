@@ -27,3 +27,22 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def sync_schema() -> list[str]:
+    """Create missing tables, and add missing columns to existing ones (as nullable).
+    Enough for an additive prototype schema; columns are never dropped or changed."""
+    from sqlalchemy import inspect, text
+
+    Base.metadata.create_all(engine)
+    insp = inspect(engine)
+    added = []
+    for table in Base.metadata.sorted_tables:
+        existing = {c["name"] for c in insp.get_columns(table.name)}
+        for col in table.columns:
+            if col.name not in existing:
+                ddl = col.type.compile(dialect=engine.dialect)
+                with engine.begin() as conn:
+                    conn.execute(text(f'ALTER TABLE {table.name} ADD COLUMN {col.name} {ddl}'))
+                added.append(f"{table.name}.{col.name}")
+    return added
