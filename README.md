@@ -35,4 +35,4 @@ cd backend && pytest
 
 ## Hosted
 
-Deployed on Render from `render.yaml`. Link: _TBD_
+Deployed on Render from `render.yaml`: **https://corvo-pr-to-po.onrender.com** (free tier: first request after idle takes ~30-60 s).
