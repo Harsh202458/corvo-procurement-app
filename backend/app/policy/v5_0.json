@@ -1,0 +1,134 @@
+{
+  "policy_id": "CORVO-PROC-POL-04",
+  "version": "5.0",
+  "effective_from": "2026-04-01",
+  "title": "Corvo Engineering Procurement Policy (PR to PO)",
+  "notes": "Encoded from Procurement Policy v5.0. Values in INR excluding GST. Where the policy is silent, see DECISIONS.md.",
+  "params": {
+    "clubbing": {
+      "enabled": true,
+      "keys": ["item_code", "plant"],
+      "creation_window_days": 14,
+      "need_by_window_days": 7,
+      "never_club_new_items": true,
+      "require_same_uom": true
+    },
+    "valuation": {
+      "price_order": ["contract_rate", "last_po_price", "standard_price"],
+      "last_po_lookback_days": 365,
+      "out_of_ceiling_uses_lowest_contract_rate": true,
+      "new_item_price": "estimated_unit_price"
+    },
+    "contracts": {
+      "require_active_supplier": true,
+      "max_ceiling_utilisation": 1.0,
+      "selection": "lowest_rate_with_ceiling"
+    },
+    "history": {
+      "lookback_days": 365,
+      "require_active_supplier": true
+    },
+    "limits": {
+      "emergency_po_max": 500000,
+      "spot_po_below": 200000,
+      "rfq_below": 1000000
+    },
+    "preferred_list": {
+      "po_lookback_days": 548,
+      "include_contract_suppliers": true,
+      "reference_price_lookback_days": 548,
+      "recency_buckets": [[90, 1.0], [365, 0.5]],
+      "weights": {"frequency": 0.30, "recency": 0.25, "contract": 0.20, "on_time": 0.15, "quality": 0.10},
+      "export_top_n": 3
+    },
+    "suggestions": {
+      "top_up_from_category": true,
+      "new_items_get_suggestions": false
+    },
+    "consolidation": {
+      "enabled": true,
+      "keys": ["supplier_id", "plant", "route"],
+      "window_hours": 24
+    },
+    "supplier_eligibility": {
+      "allowed_statuses": ["Active"],
+      "min_on_time_pct": null,
+      "min_quality_rating": null,
+      "excluded_supplier_ids": []
+    },
+    "duplicate_window_hours": 24
+  },
+  "validations": [
+    {
+      "id": "V1", "clause": "data", "title": "Quantity must be a positive number",
+      "when": {"any": [{"fact": "quantity", "op": "not_exists"}, {"fact": "quantity", "op": "lte", "value": 0}]},
+      "reason": "Quantity is missing or not positive, so the line cannot be valued or ordered"
+    },
+    {
+      "id": "V2", "clause": "data", "title": "Plant must exist in the plant master",
+      "when": {"fact": "plant_known", "op": "eq", "value": false},
+      "reason": "Plant is not in the plant master (policy applies to PUN1 and CHK1 only)"
+    },
+    {
+      "id": "V3", "clause": "data", "title": "Line must name an item",
+      "when": {"fact": "has_item_reference", "op": "eq", "value": false},
+      "reason": "No item code or description given"
+    },
+    {
+      "id": "V4", "clause": "data", "title": "Need-by date must be readable",
+      "when": {"fact": "has_need_by", "op": "eq", "value": false},
+      "reason": "Need-by date missing or unreadable, so clubbing (2.2) cannot be applied"
+    }
+  ],
+  "rules": [
+    {
+      "id": "R-1.2", "clause": "1.2", "title": "New item",
+      "description": "A line that matches no item master item always goes to sourcing, with no supplier suggestions.",
+      "when": {"fact": "is_new_item", "op": "eq", "value": true},
+      "then": {"decision": "SOURCING_REQUEST", "route": "NEW_ITEM_SOURCING", "supplier": "none", "suggest": 0}
+    },
+    {
+      "id": "R-5.1", "clause": "5.1", "title": "Capex item",
+      "description": "Capex items always go to sourcing with 5 suggested suppliers and need capex approval.",
+      "when": {"fact": "item_type", "op": "eq", "value": "Capex"},
+      "then": {"decision": "SOURCING_REQUEST", "route": "CAPEX_SOURCING", "supplier": "none", "suggest": 5, "flags": ["capex_approval"]}
+    },
+    {
+      "id": "R-5.2", "clause": "5.2", "title": "Rate contract can be used",
+      "description": "PO to the contract supplier at the contract rate, whatever the value.",
+      "when": {"fact": "contract_available", "op": "eq", "value": true},
+      "then": {"decision": "PO", "route": "CONTRACT_PO", "supplier": "contract"}
+    },
+    {
+      "id": "R-5.3", "clause": "5.3", "title": "Emergency PO",
+      "description": "Emergency, value at or below the emergency limit, and bought from an Active supplier in the last 365 days.",
+      "when": {"all": [
+        {"fact": "is_emergency", "op": "eq", "value": true},
+        {"fact": "value", "op": "lte", "value": {"param": "limits.emergency_po_max"}},
+        {"fact": "bought_recently", "op": "eq", "value": true}
+      ]},
+      "then": {"decision": "PO", "route": "EMERGENCY_PO", "supplier": "preferred"}
+    },
+    {
+      "id": "R-5.4", "clause": "5.4", "title": "Spot PO",
+      "description": "Value below the spot limit and bought from an Active supplier in the last 365 days.",
+      "when": {"all": [
+        {"fact": "value", "op": "lt", "value": {"param": "limits.spot_po_below"}},
+        {"fact": "bought_recently", "op": "eq", "value": true}
+      ]},
+      "then": {"decision": "PO", "route": "SPOT_PO", "supplier": "preferred"}
+    },
+    {
+      "id": "R-5.5", "clause": "5.5", "title": "RFQ",
+      "description": "Value below the RFQ limit (including small items never bought in the last 365 days).",
+      "when": {"fact": "value", "op": "lt", "value": {"param": "limits.rfq_below"}},
+      "then": {"decision": "SOURCING_REQUEST", "route": "RFQ", "supplier": "none", "suggest": 3}
+    },
+    {
+      "id": "R-5.6", "clause": "5.6", "title": "RFP",
+      "description": "Value at or above the RFQ limit.",
+      "when": {"fact": "value", "op": "gte", "value": {"param": "limits.rfq_below"}},
+      "then": {"decision": "SOURCING_REQUEST", "route": "RFP", "supplier": "none", "suggest": 5}
+    }
+  ]
+}

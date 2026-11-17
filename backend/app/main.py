@@ -6,7 +6,8 @@ from fastapi.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  (registers tables)
 from . import repo
-from .api import master
+from .api import master, policy
+from .policy.store import seed_default_policy
 from .config import settings
 from .db import Base, SessionLocal, engine
 
@@ -15,8 +16,10 @@ app = FastAPI(title="Corvo PR-to-PO", version="0.1.0")
 Base.metadata.create_all(engine)
 with SessionLocal() as _db:  # local/docker: seed master data from ./kit if the DB is empty
     repo.seed_master_from_kit(_db, settings.kit_dir)
+    seed_default_policy(_db)  # policy v5.0 as the first approved version
 
 app.include_router(master.router)
+app.include_router(policy.router)
 
 
 @app.get("/api/health")
