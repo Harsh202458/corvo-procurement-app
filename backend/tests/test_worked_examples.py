@@ -138,3 +138,23 @@ def test_no_blocked_or_inactive_supplier_anywhere(rows):
 
 def test_every_line_gets_a_row(all_rows):
     assert len(all_rows) == 186 and len({(r["pr_no"], r["pr_line"]) for r in all_rows}) == 186
+
+
+@pytest.mark.parametrize("item,expected,excluded", [
+    ("ITM-1048", ["S029", "S030"], ["S031"]),
+    ("ITM-1036", ["S023", "S022", "S024"], []),
+    ("ITM-1016", ["S009", "S010"], []),
+])
+def test_example_preferred_lists(item, expected, excluded):
+    from datetime import date
+
+    from app.engine.preferred import SupplierIndex
+    from app.ingest import load_master_from_dir
+    from app.policy.schema import validate_policy
+    from app.policy.store import default_policy_dict
+
+    md, _ = load_master_from_dir(KIT)
+    rows, exc = SupplierIndex(md).preferred_list(item, date(2026, 11, 1), validate_policy(default_policy_dict()).params)
+    assert [r.supplier_id for r in rows] == expected
+    assert [e.supplier_id for e in exc] == excluded
+    assert all(r.reference_price for r in rows)

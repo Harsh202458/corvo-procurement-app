@@ -44,3 +44,33 @@ Where the policy (v5.0), the brief or the data is silent or ambiguous: what I no
 | D26 | Some categories have fewer eligible suppliers than the 3 or 5 asked for (Fasteners has 2; S008 is Blocked). | Suggest all that exist and say so in the reason; never pad with ineligible suppliers. | Worked example 11 also lists only 4 for an RFP. |
 | D27 | Policy versions may change mid-batch. | Each requirement uses the version in force on its requirement date; line checks use the version on the line's own date; clubbing windows come from the version on the requirement's first line. | One clock (D8) applied consistently. |
 
+
+## Preferred supplier ranking (policy 6.2)
+
+**Who is on the list (6.1):** every supplier that passes eligibility (Active, and any extra eligibility an amendment adds) and has at least one PO for the item in the 548 days up to the date, or a contract covering the item that started on or before the date (even if expired). Blocked or Inactive suppliers are listed as *excluded*, with the reason, so the buyer can see they were considered.
+
+**Score.** Five signals, each scaled to 0..1, weighted and added:
+
+| Signal | How it is measured | Weight | Why |
+|---|---|---|---|
+| Frequency | POs for the item in the 548 days ÷ the most POs any supplier on this list has | 0.30 | Repeated buying is the strongest sign the supplier works for this item. Relative to the list, so a niche item with 2 POs is not penalised against a fastener with 40. |
+| Recency | Last PO for the item: ≤ 90 days → 1, ≤ 365 days → 0.5, older → 0 (the buckets the worked examples use) | 0.25 | Recent prices and capacity are more reliable; also links to 5.3/5.4, which need a purchase in the last 365 days. |
+| Contract | 1 if the supplier has held a contract for the item (started on or before the date) | 0.20 | Procurement already vetted them for this item and negotiated a rate. |
+| On-time | Supplier master on-time % ÷ 100 | 0.15 | Delivery record. |
+| Quality | Supplier master quality rating ÷ 5 | 0.10 | Quality record. |
+
+Ties: later last PO, then higher on-time %, then supplier id, so the result is always deterministic.
+
+**Why this weighting.** History (frequency + recency, 55%) dominates because the list's job is "best choice for a *direct* PO" (6.2), where proven supply matters most. Contract comes next, then the delivery and quality records, which refine the order among suppliers with similar history. The ratings come from the supplier master, which is the official scorecard; the PO-history `delivered_on_time` flag is per order and noisier, so it is not used separately.
+
+**Checks.**
+- It reproduces all three example rankings exactly (ITM-1048: S029, S030, with S031 excluded as Inactive; ITM-1036: S023, S022, S024; ITM-1016: S009, S010). These are automated tests.
+- Across the sample's 54 items with more than one eligible supplier, other reasonable weightings move the 1st preferred supplier for only a few items: equal weights 2, frequency-heavy 5, recency-heavy 3, quality-heavy 3, no contract signal 7. History-only moves it for 11, which is why the contract and rating signals are kept.
+
+**Reference price (6.3):** that supplier's most recent PO price for the item in the 548 days; if none, the rate in its most recent contract for the item.
+
+**Explainability:** the buyer sees each supplier's five signal values, the weights, the total and a one-line reason ("S029 score 0.933: 7 PO(s), last 2026-09-26; held a contract; on-time 81%, quality 3.1"). The weights, recency buckets and lookback days are policy parameters (`params.preferred_list`), so a change is versioned and approved like any other policy change.
+
+**Export:** `GET /api/preferred-suppliers/export.csv?as_of=YYYY-MM-DD` writes `item_code, rank, supplier_id, reference_price` for the top 3 of every item that has a list, using the policy version in force on that date. Items with no eligible supplier have no rows.
+
+**Sourcing suggestions (6.4):** the preferred list in order, then other eligible suppliers listing the item's category, best combined delivery and quality first (0.5 × on-time + 0.5 × quality, both scaled 0..1). New items get none.

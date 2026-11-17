@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import models  # noqa: F401  (registers tables)
 from . import repo
-from .api import decisions, master, policy
+from .api import decisions, master, policy, suppliers
 from .policy.store import seed_default_policy
 from .config import settings
 from .db import SessionLocal, sync_schema
@@ -21,6 +21,7 @@ with SessionLocal() as _db:  # local/docker: seed master data from ./kit if the 
 app.include_router(master.router)
 app.include_router(policy.router)
 app.include_router(decisions.router)
+app.include_router(suppliers.router)
 
 
 @app.get("/api/health")

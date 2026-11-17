@@ -48,3 +48,15 @@ def test_full_flow_with_kit_and_amendment():
     req = c.get(f"/api/runs/{r2['run_id']}/requirements").json()[0]
     full = c.get(f"/api/requirements/{req['id']}").json()
     assert full["lines"] and "facts" in full
+
+
+def test_preferred_supplier_export_and_explanation():
+    r = c.get("/api/preferred-suppliers/export.csv", params={"as_of": "2026-11-01"})
+    assert r.status_code == 200 and 'harsh__preferred.csv' in r.headers["content-disposition"]
+    rows = list(csv.DictReader(io.StringIO(r.text)))
+    assert list(rows[0]) == ["item_code", "rank", "supplier_id", "reference_price"]
+    gloves = [x["supplier_id"] for x in rows if x["item_code"] == "ITM-1048"]
+    assert gloves == ["S029", "S030"]
+    assert max(int(x["rank"]) for x in rows) == 3
+    one = c.get("/api/preferred-suppliers/ITM-1048", params={"as_of": "2026-11-01"}).json()
+    assert one["suppliers"][0]["components"]["contract"] == 1.0 and one["excluded"][0]["supplier_id"] == "S031"
