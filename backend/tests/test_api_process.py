@@ -60,3 +60,25 @@ def test_preferred_supplier_export_and_explanation():
     assert max(int(x["rank"]) for x in rows) == 3
     one = c.get("/api/preferred-suppliers/ITM-1048", params={"as_of": "2026-11-01"}).json()
     assert one["suppliers"][0]["components"]["contract"] == 1.0 and one["excluded"][0]["supplier_id"] == "S031"
+
+
+def test_read_amendment_text_without_ai_and_impact():
+    r = c.post("/api/policy/read-text", json={"text": "Version 5.9, effective 2026-11-01: the emergency PO limit is 2 lakh.",
+                                              "use_ai": False}).json()
+    assert r["method"] == "rules" and r["valid"]
+    assert any("2,00,000" in ch["text"] for ch in r["changes"])
+    imp = r["impact"]
+    assert imp["lines_on_new_version"] > 0
+    flipped = [x for x in imp["changed"] if x["before"]["route"] == "EMERGENCY_PO"]
+    assert flipped and all(x["after"]["route"] != "EMERGENCY_PO" or float(x["after"]["group_value_inr"]) <= 200000
+                           for x in flipped)
+    late = c.post("/api/policy/read-text", json={"text": "Version 5.9, effective 2027-06-01: spot PO limit 1 lakh.",
+                                                 "use_ai": False}).json()
+    assert late["impact"]["lines_on_new_version"] == 0 and "would change nothing" in late["impact"]["note"]
+
+
+def test_read_document_upload():
+    from pathlib import Path
+    f = Path(__file__).parent / "fixtures" / "amendments" / "a2_emergency_category_window.txt"
+    r = c.post("/api/policy/read-document", files={"file": (f.name, f.read_bytes())}, data={"use_ai": "false"}).json()
+    assert r["valid"] and r["source_name"] == f.name and r["document"]["version"] == "5.2"

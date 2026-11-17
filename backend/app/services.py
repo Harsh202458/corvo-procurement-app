@@ -105,3 +105,45 @@ def rows_to_csv(rows: list[dict]) -> str:
     for r in rows:
         w.writerow(r)
     return buf.getvalue()
+
+
+def policy_impact(db: Session, document: dict, batch_id: int | None = None, limit: int = 300) -> dict:
+    """Re-run a stored batch with and without a proposed version, and list what changes."""
+    from .policy.schema import validate_policy
+    from .policy.versions import ApprovedVersion
+
+    if batch_id is None:
+        batch_id = db.scalar(select(m.BatchRow.id).order_by(m.BatchRow.id.desc()))
+    if batch_id is None:
+        return {"batch_id": None, "note": "no batch uploaded yet, so there is nothing to compare"}
+    master = repo.master_snapshot(db)
+    if not master.items:
+        return {"batch_id": batch_id, "note": "master data is not loaded yet"}
+    lines = [ln for _, ln in repo.batch_lines(db, batch_id)]
+    current = store.approved_versions(db)
+    proposed = ApprovedVersion(-1, validate_policy(document), len(current) + 1)
+    before = {(r["pr_no"], r["pr_line"]): r for r in Engine(master, current).run(lines).rows()}
+    after_res = Engine(master, current + [proposed]).run(lines)
+    after = {(r["pr_no"], r["pr_line"]): r for r in after_res.rows()}
+    fields = ("route", "supplier_id", "unit_price", "group_value_inr", "suggested_supplier_ids", "po_id", "group_id")
+    changed = []
+    for k, a in after.items():
+        b = before[k]
+        diff = {f: (b[f], a[f]) for f in fields if str(b[f]) != str(a[f])}
+        if diff.get("route") or diff.get("supplier_id") or diff.get("unit_price") or diff.get("group_value_inr") \
+                or diff.get("suggested_supplier_ids"):
+            changed.append({"pr_no": k[0], "pr_line": k[1], "before": {f: b[f] for f in fields},
+                            "after": {f: a[f] for f in fields}, "changed": sorted(diff),
+                            "policy_version_after": a["policy_version"]})
+    on_new = sum(1 for r in after.values() if r["policy_version"] == proposed.label)
+    eff = proposed.document.effective_from
+    reqs = after_res.requirements
+    note = None
+    if on_new == 0 and reqs:
+        first, last = min(r.requirement_date for r in reqs), max(r.requirement_date for r in reqs)
+        note = (f"No requirement in this batch is dated on or after the effective date {eff} "
+                f"(requirements run {first} to {last}), so this version would change nothing here.")
+    return {"batch_id": batch_id, "lines": len(after), "lines_on_new_version": on_new, "effective_from": eff,
+            "changed_count": len(changed), "changed": changed[:limit],
+            "route_counts_before": dict(Counter(r["route"] for r in before.values())),
+            "route_counts_after": dict(Counter(r["route"] for r in after.values())), "note": note}

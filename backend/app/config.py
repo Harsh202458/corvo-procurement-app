@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     llm_provider: str = "none"  # "gemini" or "none" (rule-based fallbacks)
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.8-flash"
+    gemini_fallback_models: str = "gemini-3.7-flash,gemini-3.5-flash,gemini-3.1-flash-lite,gemini-3.5-flash-lite"
     kit_dir: Path = ROOT / "kit"
     submission_name: str = "harsh"
 

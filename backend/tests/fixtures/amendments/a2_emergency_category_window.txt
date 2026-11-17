@@ -1,0 +1,5 @@
+Policy amendment - version 5.2, effective 2026-11-05
+
+a) The emergency PO limit (clause 5.3) is reduced to 3 lakh.
+b) Safety & PPE items: any requirement worth 1,00,000 or more needs an RFQ, even if the item was bought before.
+c) Clause 2.2: lines are clubbed when created within 21 calendar days of the requirement's first line.

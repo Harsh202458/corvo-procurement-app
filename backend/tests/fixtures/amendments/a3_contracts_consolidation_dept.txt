@@ -1,0 +1,4 @@
+Amendment v6.0 (effective 1 Nov 2026)
+- Rate contracts must not be used for emergency requirements; emergencies are decided by clause 5.3 and the later rules.
+- PO consolidation (7.1): requirements raised within 48 hours of the first requirement on the PO are combined.
+- Requirements raised by the IT department for Office & IT items worth more than 50,000 must go to RFQ.

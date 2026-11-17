@@ -45,6 +45,16 @@ Where the policy (v5.0), the brief or the data is silent or ambiguous: what I no
 | D27 | Policy versions may change mid-batch. | Each requirement uses the version in force on its requirement date; line checks use the version on the line's own date; clubbing windows come from the version on the requirement's first line. | One clock (D8) applied consistently. |
 
 
+## Policy updates (amendments)
+
+| # | Noticed | Decided | Why |
+|---|---|---|---|
+| D28 | An amendment arrives as a document or a chat message, and the AI may misread it. | The AI (Gemini) only proposes **operations**. The app applies them to the base version, validates the result and shows a **diff computed by the app** (not the AI's own summary), plus an **impact preview**: the last batch re-run with and without the change, line by line. Nothing changes until a person approves. If validation fails, the AI gets the errors back and repairs its answer (up to 2 rounds); after that the operations go to the editor for a hand fix. | The diff and impact are facts the reviewer can trust; the AI's summary is shown separately as "what the AI read". |
+| D29 | An amendment may not state its effective date or version number. | Missing version: the next minor version (5.0 → 5.1). Missing effective date: **today**, with a warning, and the impact preview says so if no requirement in the batch would fall on the new version. Both are editable before approval. | A date must never be invented silently: it decides which requirements the amendment touches (D8). |
+| D30 | Which version an amendment amends. | The latest approved version, unless the user picks another. | Amendments are written against the policy in force. |
+| D31 | The AI service can be slow or overloaded (during the build, Gemini Flash returned 503/504 for minutes at a time). | Each call is capped at 60 s and falls back through several Gemini models (Flash, then Flash-Lite). If all fail, a **rule-based reader** handles the common changes (limits in INR or lakh/crore, clubbing and consolidation windows, effective date, version, excluded suppliers) and lists every sentence it could not handle. The JSON editor is always available. | The blind test has a 2-hour window; reading an amendment must never depend on one external service being up. |
+| D32 | A plant- or category-specific limit cannot be a single number. | It is expressed as a new named limit (e.g. `limits.chk1_spot_po_below`) and a rule with a `plant`/`category` condition, placed **before** the general rule it overrides (first match wins). | Keeps the general rule intact for everyone else, and the diff reads naturally ("New rule (before R-5.4): …"). |
+
 ## Preferred supplier ranking (policy 6.2)
 
 **Who is on the list (6.1):** every supplier that passes eligibility (Active, and any extra eligibility an amendment adds) and has at least one PO for the item in the 548 days up to the date, or a contract covering the item that started on or before the date (even if expired). Blocked or Inactive suppliers are listed as *excluded*, with the reason, so the buyer can see they were considered.

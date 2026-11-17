@@ -1,0 +1,6 @@
+Corvo Engineering - Procurement Policy Amendment No. 1
+Amends CORVO-PROC-POL-04 v5.0. New version: 5.1. Effective from 10 November 2026.
+
+1. Clause 5.4 (Spot PO): the value limit is raised from 2,00,000 to 2,50,000.
+2. New clause 5.2A: At the Chakan plant (CHK1), every Service item must go to RFQ with 3 suggested suppliers, whatever its value, unless a rate contract can be used.
+3. Supplier S014 (Mahalaxmi Machine Spares) is blocked with immediate effect. It must not receive purchase orders or be suggested for sourcing events.

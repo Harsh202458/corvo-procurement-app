@@ -8,13 +8,17 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models as m
+from .. import services
 from ..db import get_db
+from ..doc_text import UnsupportedDocument, document_text
+from ..llm import NullClient, get_llm
+from ..policy.reader import read_amendment
 from ..policy import store
 from ..policy.changes import PARAM_LABELS, OperationError, apply_operations, diff_policies, policy_summary
 from ..policy.conditions import OP_WORDS
@@ -137,3 +141,81 @@ def reject(version_id: int, body: DecisionBody | None = None, db: Session = Depe
         raise HTTPException(409, str(e))
     db.commit()
     return _row_summary(row)
+
+
+# ---------------------------------------------------------------- reading amendments
+
+def _read(db: Session, text: str, base_version_id: int | None, use_ai: bool, source_name: str | None) -> dict:
+    base = db.get(m.PolicyVersionRow, base_version_id) if base_version_id else store.latest_approved(db)
+    if base is None:
+        raise HTTPException(404, "base policy version not found")
+    if not text.strip():
+        raise HTTPException(422, "the amendment is empty")
+    cats = sorted({c for c in db.scalars(select(m.ItemRow.category))})
+    plants = sorted(db.scalars(select(m.PlantRow.plant)))
+    llm = get_llm() if use_ai else NullClient()
+    p = read_amendment(text, base.document, llm, today=date.today(), categories=cats, plants=plants)
+    out = {"base_version_id": base.id, "base_version": base.version, "source_name": source_name,
+           "source_text": text, **p.as_dict()}
+    if p.valid:
+        try:
+            out["impact"] = services.policy_impact(db, p.document)
+        except Exception as e:  # impact is advisory; never block reading
+            out["impact"] = {"note": f"impact preview failed: {e}"}
+    return out
+
+
+@router.post("/read-document")
+async def read_document(file: UploadFile = File(...), base_version_id: int | None = Form(None),
+                        use_ai: bool = Form(True), db: Session = Depends(get_db)):
+    """Upload an amendment (PDF, DOCX, TXT). Returns proposed operations, the computed diff and the
+    impact on the last batch. Nothing is saved until a draft is created and approved."""
+    data = await file.read(10 * 1024 * 1024 + 1)
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(413, "file too large")
+    try:
+        text = document_text(data, file.filename or "")
+    except UnsupportedDocument as e:
+        raise HTTPException(422, str(e))
+    return _read(db, text, base_version_id, use_ai, file.filename)
+
+
+class TextBody(BaseModel):
+    text: str
+    base_version_id: int | None = None
+    use_ai: bool = True
+
+
+@router.post("/read-text")
+def read_text(body: TextBody, db: Session = Depends(get_db)):
+    """A change described in words (e.g. from the chat)."""
+    return _read(db, body.text, body.base_version_id, body.use_ai, "chat message")
+
+
+class ImpactBody(BaseModel):
+    document: dict[str, Any] | None = None
+    operations: list[dict[str, Any]] | None = None
+    base_version_id: int | None = None
+    batch_id: int | None = None
+
+
+@router.post("/impact")
+def impact(body: ImpactBody, db: Session = Depends(get_db)):
+    """What a proposed version would change on a stored batch (default: the latest)."""
+    _, doc = _build(db, ProposeBody(base_version_id=body.base_version_id, operations=body.operations,
+                                    document=body.document))
+    try:
+        validate_policy(doc)
+    except PolicyInvalid as e:
+        raise HTTPException(422, {"errors": e.errors})
+    return services.policy_impact(db, doc, body.batch_id)
+
+
+@router.get("/versions/{version_id}/impact")
+def version_impact(version_id: int, batch_id: int | None = None, db: Session = Depends(get_db)):
+    r = db.get(m.PolicyVersionRow, version_id)
+    if r is None:
+        raise HTTPException(404, "policy version not found")
+    if r.status != "draft":
+        raise HTTPException(409, "impact preview is for drafts; approved versions are already in effect")
+    return services.policy_impact(db, r.document, batch_id)
