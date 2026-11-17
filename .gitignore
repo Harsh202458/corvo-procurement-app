@@ -15,3 +15,4 @@ backend/static/
 .pytest_cache/
 *.pyc
 .DS_Store
+.claude/

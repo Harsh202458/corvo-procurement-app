@@ -225,7 +225,8 @@ class ChatAssistant:
 
     def _extract(self, text: str, state: ChatState) -> dict:
         base = regex_extract(text, self.today, self.spec_numbers)
-        if self.llm is not None:
+        short_answer = len(text.split()) <= 4 and state.asked not in (None, "item")
+        if self.llm is not None and not short_answer:  # short answers are parsed locally: keeps chat fast
             try:
                 got = llm_extract(text, self.llm, self.today, state.asked)
                 base.update({k: v for k, v in got.items() if v not in (None, "", [])})

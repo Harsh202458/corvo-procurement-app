@@ -81,8 +81,7 @@ class GeminiClient:
 def get_fast_llm() -> LLMClient:
     """For chat turns: quick models first and a short timeout; the regex extractor covers failures."""
     if settings.llm_provider == "gemini" and settings.gemini_api_key:
-        return GeminiClient(settings.gemini_api_key, "gemini-3.1-flash-lite",
-                            ["gemini-3.5-flash-lite", settings.gemini_model], timeout_s=12)
+        return GeminiClient(settings.gemini_api_key, "gemini-3.1-flash-lite", ["gemini-3.5-flash-lite"], timeout_s=8)
     return NullClient()
 
 

@@ -25,14 +25,28 @@ def _doc_json(p: PolicyDocument) -> dict:
     return p.model_dump(mode="json")
 
 
+SEED_SOURCE = "Corvo_Procurement_Policy.pdf (encoded as v5_0.json)"
+
+
 def seed_default_policy(db: Session) -> m.PolicyVersionRow | None:
-    if db.scalar(select(func.count()).select_from(m.PolicyVersionRow)):
-        return None
     p = validate_policy(default_policy_dict())
+    if db.scalar(select(func.count()).select_from(m.PolicyVersionRow)):
+        # keep the system's own encoding of v5.0 in step with v5_0.json (it is not a user-approved change);
+        # versions people created are never touched
+        seed = db.scalar(select(m.PolicyVersionRow).where(m.PolicyVersionRow.created_by == "system",
+                                                          m.PolicyVersionRow.source_name == SEED_SOURCE))
+        if seed is not None and seed.document != _doc_json(p):
+            before = {"validations": len(seed.document.get("validations", [])), "rules": len(seed.document.get("rules", []))}
+            seed.document = _doc_json(p)
+            audit(db, "system", "policy.seed_refresh", "policy_version", seed.id, before=before,
+                  after={"validations": len(p.validations), "rules": len(p.rules)},
+                  comment="system encoding of v5.0 updated from v5_0.json at startup")
+            db.commit()
+        return None
     row = m.PolicyVersionRow(
         version=p.version, effective_from=p.effective_from, status="approved", document=_doc_json(p),
         change_summary=[{"kind": "meta", "text": "Initial policy v5.0 loaded"}],
-        source_name="Corvo_Procurement_Policy.pdf (encoded as v5_0.json)",
+        source_name=SEED_SOURCE,
         created_by="system", approved_by="system (initial load)", approved_at=datetime.now(timezone.utc),
     )
     db.add(row)

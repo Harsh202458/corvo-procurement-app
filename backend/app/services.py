@@ -112,8 +112,8 @@ def policy_impact(db: Session, document: dict, batch_id: int | None = None, limi
     from .policy.schema import validate_policy
     from .policy.versions import ApprovedVersion
 
-    if batch_id is None:
-        batch_id = db.scalar(select(m.BatchRow.id).order_by(m.BatchRow.id.desc()))
+    if batch_id is None:  # the latest uploaded batch file; chat PRs are single lines
+        batch_id = db.scalar(select(m.BatchRow.id).where(m.BatchRow.source == "csv").order_by(m.BatchRow.id.desc()))             or db.scalar(select(m.BatchRow.id).order_by(m.BatchRow.id.desc()))
     if batch_id is None:
         return {"batch_id": None, "note": "no batch uploaded yet, so there is nothing to compare"}
     master = repo.master_snapshot(db)

@@ -157,6 +157,8 @@ def _read(db: Session, text: str, base_version_id: int | None, use_ai: bool, sou
     p = read_amendment(text, base.document, llm, today=date.today(), categories=cats, plants=plants)
     out = {"base_version_id": base.id, "base_version": base.version, "source_name": source_name,
            "source_text": text, **p.as_dict()}
+    if not use_ai:
+        out["llm_note"] = "AI reader switched off: rule-based reader used"
     if p.valid:
         try:
             out["impact"] = services.policy_impact(db, p.document)
